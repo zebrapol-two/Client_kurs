@@ -1,6 +1,7 @@
 package com.example.client_kurs.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.client_kurs.domain.repository.AuthRepository
 import com.example.client_kurs.domain.usecase.CreateOrderUseCase
 import com.example.client_kurs.domain.usecase.GetProductsUseCase
@@ -9,7 +10,6 @@ import com.example.client_kurs.domain.repository.ProductRepository
 import com.example.client_kurs.domain.model.Product
 import com.example.client_kurs.domain.model.OrderItem
 import com.example.client_kurs.domain.model.UserRole
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch

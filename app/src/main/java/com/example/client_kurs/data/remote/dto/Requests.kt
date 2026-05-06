@@ -4,6 +4,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class RegisterRequest(
+    val id: String,
+    val email: String,
     val role: String
 )
 
@@ -16,4 +18,3 @@ data class UserRoleResponse(
 data class StockUpdateRequest(
     val newQuantity: Int
 )
-

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "625086493384",
+    "project_id": "kursach6sem",
+    "storage_bucket": "kursach6sem.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:625086493384:android:812d6d2340a6aa14776bfd",
+        "android_client_info": {
+          "package_name": "com.example.client_kurs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1yMcE8CbByBIlTd-Yba4oaYyvkLbhAXs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
