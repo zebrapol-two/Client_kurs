@@ -49,11 +49,87 @@ class AuthRepositoryImpl(
                 return Result.failure(Exception("Не удалось получить UID пользователя"))
             }
 
+<<<<<<< HEAD
             // Пытаемся получить роль с сервера
             try {
                 Log.d(TAG, "Запрос на /api/auth/role/$userId")
                 val response = ktorClient.get("/api/auth/role/$userId") {
                     header("Authorization", "Bearer $token")
+=======
+            val authResponse = response.body<AuthResponse>()
+            // 3. Сохраняем токены и роль
+            userPreferencesManager.saveAccessToken(authResponse.accessToken)
+            userPreferencesManager.saveRefreshToken(authResponse.refreshToken)
+            val role = UserRole.valueOf(authResponse.role.uppercase())
+            userPreferencesManager.saveRole(role)
+
+            Log.d(TAG, "Login успешен, роль: $role")
+            Result.success(role)
+        } catch (e: Exception) {
+            Log.e(TAG, "Ошибка логина", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun register(email: String, password: String): Result<Unit> {
+        return try {
+            // 1. Создаём только Firebase-аккаунт.
+            //    Запись на сервере и роль создаются позже, после выбора на экране RoleSelectionScreen.
+            firebaseAuthManager.signUp(email, password)
+
+            // 2. Возвращаем успех, чтобы UI перевёл пользователя на экран выбора роли.
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Ошибка регистрации", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun saveRole(role: UserRole): Result<Unit> {
+<<<<<<< HEAD
+        // Роль уже установлена на сервере при регистрации, этот метод не нужен.
+        // Если нужно менять роль – нужен отдельный эндпоинт.
+        userPreferencesManager.saveRole(role)
+        return Result.success(Unit)
+=======
+        return try {
+            val token = getAuthToken()
+            val userId = firebaseAuth.currentUser?.uid
+            val userEmail = firebaseAuth.currentUser?.email
+
+            if (token.isNullOrEmpty() || userId.isNullOrEmpty() || userEmail.isNullOrEmpty()) {
+                return Result.failure(Exception("Не удалось получить данные пользователя"))
+            }
+
+            Log.d(TAG, "Отправка RegisterRequest: id=$userId, role=${role.name.lowercase()}")
+            ktorClient.post("/auth/register") {
+                header("Authorization", "Bearer $token")
+                setBody(RegisterRequest(firebaseUid = userId, email = userEmail, role = role.name.lowercase()))
+            }
+
+            userPreferencesManager.saveRole(role)
+            Log.d(TAG, "Роль сохранена: $role")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Ошибка сохранения роли: ${e.message}", e)
+            Result.failure(e)
+        }
+>>>>>>> 6d7f8b3 (Исправление логики отправки запросов на получение имеющихся товаров на складе)
+    }
+
+    override fun getRole(): UserRole? = userPreferencesManager.getRole()
+
+    override fun isUserLoggedIn(): Boolean = userPreferencesManager.getAccessToken() != null
+
+    override suspend fun logout() {
+        val accessToken = userPreferencesManager.getAccessToken()
+
+        try {
+            if (!accessToken.isNullOrBlank()) {
+                httpClient.post("/api/auth/logout") {
+                    header(HttpHeaders.Authorization, "Bearer $accessToken")
+                    header(HttpHeaders.ContentType, "application/json")
+>>>>>>> 8119b08 (Исправление логики отправки запросов на получение имеющихся товаров на складе)
                 }
                 Log.d(TAG, "Ответ сервера статус: ${response.status.value}")
 

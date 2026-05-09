@@ -25,7 +25,59 @@ val appModule = module {
     single<ProductRepository> { ProductRepositoryImpl() }
     single<OrderRepository> { OrderRepositoryImpl() }
 
+<<<<<<< HEAD
     // UseCases
+=======
+<<<<<<< HEAD
+    // Room Database
+    single { AppDatabase.getInstance(androidContext()) }
+    single { get<AppDatabase>().orderDao() }
+=======
+    // Repositories
+    single<AuthRepository> { AuthRepositoryImpl(get(), get()) }
+    single<ProductRepository> { ProductRepositoryImpl(get()) }
+    single<OrderRepository> { OrderRepositoryImpl() }
+    single<InventoryRepository> { InventoryRepositoryImpl() }
+    single<SupplierRepository> { SupplierRepositoryImpl() }
+    single<AnalyticsRepository> { AnalyticsRepositoryImpl() }
+>>>>>>> 6d7f8b3 (Исправление логики отправки запросов на получение имеющихся товаров на складе)
+
+    // Неавторизованный HTTP клиент
+    single(named("unauthorized")) {
+        HttpClient(Android) {
+            install(ContentNegotiation) {
+                json(Json {
+                    prettyPrint = true
+                    isLenient = true
+                    ignoreUnknownKeys = true
+                })
+            }
+            defaultRequest {
+                url(ServerConfig.BASE_URL)
+                contentType(ContentType.Application.Json)
+            }
+        }
+    }
+
+    single { RefreshTokenApi(get(named("unauthorized"))) }
+
+    // Авторизованный HTTP клиент
+    single { KtorClientFactory(get(), get()).create() }
+
+    // API сервис
+    single<KtorApiService> { KtorApiServiceImpl(get()) }
+
+    // Репозитории
+    single<AuthRepository> { AuthRepositoryImpl(get(), get(), get(named("unauthorized")), get(), get()) }
+    single<ProductRepository> { ProductRepositoryImpl(get()) }
+    single<OrderRepository> { OrderRepositoryImpl(get(), get()) }  // передаём database
+    single<InventoryRepository> { InventoryRepositoryImpl(get()) }
+    single<SupplierRepository> { SupplierRepositoryImpl(get()) }
+    single<OrderRepositoryImpl> { OrderRepositoryImpl(get(), get()) }
+    single<AnalyticsRepository> { AnalyticsRepositoryImpl(get()) }
+
+    // UseCase
+>>>>>>> 8119b08 (Исправление логики отправки запросов на получение имеющихся товаров на складе)
     factory { GetProductsUseCase(get()) }
     factory { CreateOrderUseCase(get()) }
     factory { UpdateStockUseCase(get()) }
