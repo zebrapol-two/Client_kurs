@@ -16,7 +16,7 @@ import io.ktor.client.request.setBody
 class SupplierRepositoryImpl : SupplierRepository {
     override suspend fun getSuppliers(productId: String): Result<List<SupplierOffer>> {
         return try {
-            val suppliers = ktorClient.get("/suppliers/$productId")
+            val suppliers = ktorClient.get("/api/suppliers/$productId")
                 .body<List<SupplierDto>>()
             Result.success(suppliers.map { it.toDomain() })
         } catch (e: Exception) {
@@ -30,7 +30,7 @@ class SupplierRepositoryImpl : SupplierRepository {
         quantity: Int
     ): Result<Unit> {
         return try {
-            ktorClient.post("/purchase/create") {
+            ktorClient.post("/api/purchase/create") {
                 setBody(PurchaseCreateRequest(productId, supplierId, quantity))
             }
             Result.success(Unit)
