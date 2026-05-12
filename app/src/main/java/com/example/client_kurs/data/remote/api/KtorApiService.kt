@@ -3,6 +3,8 @@ package com.example.client_kurs.data.remote.api
 import com.example.client_kurs.data.remote.dto.CreateOrderRequest
 import com.example.client_kurs.data.remote.dto.OrderDto
 import com.example.client_kurs.data.remote.dto.ProductDto
+import com.example.client_kurs.data.remote.dto.PurchaseOrderDto
+import com.example.client_kurs.data.remote.dto.ReceiveGoodsRequest
 import com.example.client_kurs.data.remote.dto.RegisterRequest
 import com.example.client_kurs.data.remote.dto.StockUpdateRequest
 import com.example.client_kurs.data.remote.dto.UserRoleResponse
@@ -32,4 +34,8 @@ interface KtorApiService {
 
     /** Зарегистрировать пользователя на сервере */
     suspend fun registerUser(request: RegisterRequest)
+
+    suspend fun getPendingPurchases(): List<PurchaseOrderDto>
+
+    suspend fun receiveGoods(purchaseId: String, request: ReceiveGoodsRequest)
 }

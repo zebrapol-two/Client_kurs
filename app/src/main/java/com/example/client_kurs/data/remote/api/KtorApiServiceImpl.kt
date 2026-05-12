@@ -3,6 +3,8 @@ package com.example.client_kurs.data.remote.api
 import com.example.client_kurs.data.remote.dto.CreateOrderRequest
 import com.example.client_kurs.data.remote.dto.OrderDto
 import com.example.client_kurs.data.remote.dto.ProductDto
+import com.example.client_kurs.data.remote.dto.PurchaseOrderDto
+import com.example.client_kurs.data.remote.dto.ReceiveGoodsRequest
 import com.example.client_kurs.data.remote.dto.RegisterRequest
 import com.example.client_kurs.data.remote.dto.StockUpdateRequest
 import com.example.client_kurs.data.remote.dto.UserRoleResponse
@@ -12,8 +14,22 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.isSuccess
 
 class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
+
+    private suspend inline fun <reified T> safeResponse(response: HttpResponse): T {
+        if (!response.status.isSuccess()) {
+            val errorBody = try {
+                response.body<Map<String, String>>()
+            } catch (e: Exception) {
+                mapOf("error" to "Ошибка сервера (${response.status.value})")
+            }
+            throw Exception(errorBody["error"] ?: "Неизвестная ошибка")
+        }
+        return response.body()
+    }
 
     override suspend fun getProducts(): List<ProductDto> =
         httpClient.get("/api/products").body()
@@ -40,5 +56,19 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
 
     override suspend fun registerUser(request: RegisterRequest) {
         httpClient.post("/api/auth/register") { setBody(request) }
+    }
+    override suspend fun getPendingPurchases(): List<PurchaseOrderDto> {
+        val response = httpClient.get("/api/purchases/pending")
+        return safeResponse(response)  // используй safeResponse из предыдущих советов
+    }
+
+    override suspend fun receiveGoods(purchaseId: String, request: ReceiveGoodsRequest) {
+        val response = httpClient.put("/api/purchases/$purchaseId/receive") {
+            setBody(request)
+        }
+        if (!response.status.isSuccess()) {
+            val error = response.body<Map<String, String>>()
+            throw Exception(error["error"] ?: "Ошибка приёмки")
+        }
     }
 }

@@ -46,10 +46,6 @@ dependencies {
 <<<<<<< HEAD
 =======
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
-<<<<<<< HEAD
-    implementation("com.patrykandpatrick.vico:compose:2.5.0")
-=======
->>>>>>> 6d7f8b3 (Исправление логики отправки запросов на получение имеющихся товаров на складе)
 
 >>>>>>> 8119b08 (Исправление логики отправки запросов на получение имеющихся товаров на складе)
     // viewmodel lifecycle

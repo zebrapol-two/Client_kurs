@@ -34,6 +34,7 @@ import com.example.client_kurs.presentation.viewmodel.AnalyticsViewModel
 import com.example.client_kurs.presentation.viewmodel.AuthViewModel
 import com.example.client_kurs.presentation.viewmodel.CustomerViewModel
 import com.example.client_kurs.presentation.viewmodel.InventoryViewModel
+import com.example.client_kurs.presentation.viewmodel.PendingDeliveriesViewModel
 import com.example.client_kurs.presentation.viewmodel.RecommendOrderViewModel
 import com.example.client_kurs.presentation.viewmodel.StorekeeperViewModel
 import com.example.client_kurs.presentation.viewmodel.SupplierComparisonViewModel
@@ -61,7 +62,7 @@ val appModule = module {
     single<ProductRepository> { ProductRepositoryImpl(get()) }
     single<OrderRepository> { OrderRepositoryImpl() }
     single<InventoryRepository> { InventoryRepositoryImpl() }
-    single<SupplierRepository> { SupplierRepositoryImpl() }
+    single<SupplierRepository> { SupplierRepositoryImpl(get()) }
     single<AnalyticsRepository> { AnalyticsRepositoryImpl() }
 
     // UseCases
@@ -87,4 +88,5 @@ val appModule = module {
     viewModel { SupplierComparisonViewModel(get(), get(), get()) }
     viewModel { AnalyticsViewModel(get(), get()) }
     viewModel { RecommendOrderViewModel(get(), get()) }
+    viewModel { PendingDeliveriesViewModel(get()) }
 }
