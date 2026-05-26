@@ -8,6 +8,8 @@ import com.example.client_kurs.data.remote.dto.ReceiveGoodsRequest
 import com.example.client_kurs.data.remote.dto.RegisterRequest
 import com.example.client_kurs.data.remote.dto.StockUpdateRequest
 import com.example.client_kurs.data.remote.dto.UserRoleResponse
+import com.example.client_kurs.domain.model.AnalyticsOverview
+import com.example.client_kurs.domain.model.TopSellingProduct
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -70,5 +72,14 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
             val error = response.body<Map<String, String>>()
             throw Exception(error["error"] ?: "Ошибка приёмки")
         }
+    }
+    override suspend fun getAnalyticsOverview(): AnalyticsOverview {
+        val response = httpClient.get("/api/analytics/overview")
+        return safeResponse(response)
+    }
+
+    override suspend fun getTopSelling(): List<TopSellingProduct> {
+        val response = httpClient.get("/api/analytics/top-selling")
+        return safeResponse(response)
     }
 }

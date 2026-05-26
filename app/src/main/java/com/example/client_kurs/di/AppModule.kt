@@ -63,7 +63,7 @@ val appModule = module {
     single<OrderRepository> { OrderRepositoryImpl() }
     single<InventoryRepository> { InventoryRepositoryImpl() }
     single<SupplierRepository> { SupplierRepositoryImpl(get()) }
-    single<AnalyticsRepository> { AnalyticsRepositoryImpl() }
+    single<AnalyticsRepository> { AnalyticsRepositoryImpl(get()) }
 
     // UseCases
     factory { GetProductsUseCase(get()) }
@@ -86,7 +86,7 @@ val appModule = module {
     viewModel { StorekeeperViewModel(get(), get(), get(), get()) }
     viewModel { InventoryViewModel(get(), get()) }
     viewModel { SupplierComparisonViewModel(get(), get(), get()) }
-    viewModel { AnalyticsViewModel(get(), get()) }
+    viewModel { AnalyticsViewModel(get(), get(), get()) }
     viewModel { RecommendOrderViewModel(get(), get()) }
     viewModel { PendingDeliveriesViewModel(get()) }
 }

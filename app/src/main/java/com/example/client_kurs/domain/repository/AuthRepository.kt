@@ -4,8 +4,14 @@ import com.example.client_kurs.domain.model.UserRole
 
 interface AuthRepository {
     suspend fun login(email: String, password: String): Result<UserRole>
-    suspend fun register(email: String, password: String, role: UserRole): Result<Unit>
-    fun getCurrentUserRole(): UserRole?
+    /** Creates a Firebase account only. Role registration is done separately via [saveRole]. */
+    suspend fun register(email: String, password: String): Result<Unit>
+    /** Sends role to the backend and persists it locally. */
+    suspend fun saveRole(role: UserRole): Result<Unit>
+    /** Returns the locally persisted role, or null if none saved. */
+    fun getRole(): UserRole?
+    /** True when a Firebase user is currently signed in. */
+    fun isUserLoggedIn(): Boolean
     fun logout()
 }
 

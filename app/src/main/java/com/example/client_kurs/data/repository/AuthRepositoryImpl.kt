@@ -14,6 +14,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.tasks.await
 
 class AuthRepositoryImpl(
@@ -42,19 +43,38 @@ class AuthRepositoryImpl(
             }
 
             Log.d(TAG, "Запрос на /api/auth/role/$userId")
-            val response = ktorClient.get("/api/auth/role/$userId") {
+            var response = ktorClient.get("/api/auth/role/$userId") {
                 header("Authorization", "Bearer $token")
             }
             Log.d(TAG, "Ответ сервера статус: ${response.status.value}")
 
+            // Если пользователь не найден на сервере — автоматически регистрируем его как customer
             if (response.status.value == 404) {
-                return Result.failure(Exception("Пользователь не найден на сервере. Зарегистрируйтесь заново."))
+                Log.d(TAG, "Пользователь не найден на сервере, выполняем авторегистрацию как customer")
+                val userEmail = firebaseAuth.currentUser?.email
+                if (userEmail.isNullOrEmpty()) {
+                    return Result.failure(Exception("Email пользователя отсутствует"))
+                }
+                // Отправляем регистрационные данные на сервер
+                ktorClient.post("/api/auth/register") {
+                    header("Authorization", "Bearer $token")
+                    setBody(RegisterRequest(firebaseUid = userId, email = userEmail, role = "customer"))
+                }
+                // После регистрации повторно запрашиваем роль
+                response = ktorClient.get("/api/auth/role/$userId") {
+                    header("Authorization", "Bearer $token")
+                }
+                Log.d(TAG, "Статус после авторегистрации: ${response.status.value}")
+            }
+
+            if (!response.status.isSuccess()) {
+                return Result.failure(Exception("Ошибка сервера: ${response.status.value}"))
             }
 
             val userRoleResponse = response.body<UserRoleResponse>()
             val role = UserRole.valueOf(userRoleResponse.role.uppercase())
             userPreferencesManager.saveRole(role)
-            Log.d(TAG, "Роль получена с сервера: $role")
+            Log.d(TAG, "Роль получена: $role")
             Result.success(role)
         } catch (e: Exception) {
             Log.e(TAG, "Ошибка логина: ${e.message}", e)

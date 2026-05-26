@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class RegisterRequest(
-    val firebaseUid: String,
+    val firebaseToken: String,
     val email: String,
     val role: String
 )
