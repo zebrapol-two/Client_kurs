@@ -50,12 +50,8 @@ class InventoryViewModel(
         _isLoading.value = true
         viewModelScope.launch {
             getProductsUseCase()
-                .onSuccess {
-                    _products.value = it
-                }
-                .onFailure {
-                    _error.value = it.message ?: "Не удалось загрузить товары"
-                }
+                .onSuccess { _products.value = it }
+                .onFailure { _error.value = it.message ?: "Не удалось загрузить товары" }
             _isLoading.value = false
         }
     }
@@ -66,6 +62,7 @@ class InventoryViewModel(
     }
 
     fun onSearchIdInputChange(value: String) {
+        // Разрешаем любой ввод, так как ID теперь строка
         _searchIdInput.value = value
     }
 
@@ -94,6 +91,7 @@ class InventoryViewModel(
                 price = product.price
             )
         }
+
         _discrepancies.value = result
         _showReportDialog.value = true
     }
@@ -112,7 +110,7 @@ class InventoryViewModel(
                     _searchIdInput.value = ""
                     _highlightedProductId.value = null
                     _showReportDialog.value = false
-                    loadProducts() // уже есть
+                    loadProducts()
                 }
                 .onFailure {
                     _error.value = it.message ?: "Не удалось завершить инвентаризацию"
