@@ -1,131 +1,132 @@
 package com.example.client_kurs.data.repository
 
 import android.util.Log
+import com.example.client_kurs.auth.FirebaseAuthManager
 import com.example.client_kurs.data.local.UserPreferencesManager
+import com.example.client_kurs.data.remote.RefreshTokenApi
+import com.example.client_kurs.data.remote.dto.AuthResponse
 import com.example.client_kurs.data.remote.dto.RegisterRequest
-import com.example.client_kurs.data.remote.dto.UserRoleResponse
-import com.example.client_kurs.data.remote.getAuthToken
-import com.example.client_kurs.data.remote.ktorClient
 import com.example.client_kurs.domain.model.UserRole
 import com.example.client_kurs.domain.repository.AuthRepository
-import com.google.firebase.auth.FirebaseAuth
+import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.isSuccess
-import kotlinx.coroutines.tasks.await
 
 class AuthRepositoryImpl(
-    private val firebaseAuth: FirebaseAuth,
-    private val userPreferencesManager: UserPreferencesManager
+    private val firebaseAuthManager: FirebaseAuthManager,
+    private val userPreferencesManager: UserPreferencesManager,
+    private val httpClient: HttpClient,  // новый клиент (не авторизованный, для логина)
+    private val refreshTokenApi: RefreshTokenApi
 ) : AuthRepository {
 
     companion object {
         private const val TAG = "AuthRepository"
     }
-
-    override suspend fun login(email: String, password: String): Result<UserRole> {
+    // AuthRepositoryImpl.kt
+    override suspend fun registerWithRole(email: String, password: String, role: String): Result<Unit> {
         return try {
-            Log.d(TAG, "Попытка логина: $email")
-            firebaseAuth.signInWithEmailAndPassword(email, password).await()
-            val token = getAuthToken()
-            val userId = firebaseAuth.currentUser?.uid
+            // Firebase-пользователь уже создан и залогинен на этапе register()
+            val firebaseToken = firebaseAuthManager.getIdToken(forceRefresh = true)
+                ?: return Result.failure(Exception("Не удалось получить Firebase токен"))
 
-            if (token.isNullOrEmpty()) {
-                Log.e(TAG, "Токен Firebase пуст")
-                return Result.failure(Exception("Не удалось получить токен Firebase"))
-            }
-            if (userId.isNullOrEmpty()) {
-                Log.e(TAG, "UID пользователя пуст")
-                return Result.failure(Exception("Не удалось получить UID пользователя"))
-            }
-
-            Log.d(TAG, "Запрос на /api/auth/role/$userId")
-            var response = ktorClient.get("/api/auth/role/$userId") {
-                header("Authorization", "Bearer $token")
-            }
-            Log.d(TAG, "Ответ сервера статус: ${response.status.value}")
-
-            // Если пользователь не найден на сервере — автоматически регистрируем его как customer
-            if (response.status.value == 404) {
-                Log.d(TAG, "Пользователь не найден на сервере, выполняем авторегистрацию как customer")
-                val userEmail = firebaseAuth.currentUser?.email
-                if (userEmail.isNullOrEmpty()) {
-                    return Result.failure(Exception("Email пользователя отсутствует"))
-                }
-                // Отправляем регистрационные данные на сервер
-                ktorClient.post("/api/auth/register") {
-                    header("Authorization", "Bearer $token")
-                    setBody(RegisterRequest(firebaseUid = userId, email = userEmail, role = "customer"))
-                }
-                // После регистрации повторно запрашиваем роль
-                response = ktorClient.get("/api/auth/role/$userId") {
-                    header("Authorization", "Bearer $token")
-                }
-                Log.d(TAG, "Статус после авторегистрации: ${response.status.value}")
+            val response = httpClient.post("/api/auth/register") {
+                setBody(RegisterRequest(
+                    firebaseToken = firebaseToken,
+                    email = email,
+                    role = role
+                ))
+                header("Content-Type", "application/json")
             }
 
             if (!response.status.isSuccess()) {
-                return Result.failure(Exception("Ошибка сервера: ${response.status.value}"))
+                val errorMsg = try { response.body<Map<String, String>>()["error"] } catch (_: Exception) { null }
+                return Result.failure(Exception(errorMsg ?: "Ошибка регистрации на сервере"))
             }
 
-            val userRoleResponse = response.body<UserRoleResponse>()
-            val role = UserRole.valueOf(userRoleResponse.role.uppercase())
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Ошибка регистрации с ролью", e)
+            Result.failure(e)
+        }
+    }
+    override suspend fun login(email: String, password: String): Result<UserRole> {
+        return try {
+            // 1. Вход в Firebase
+            firebaseAuthManager.signIn(email, password)
+            val firebaseToken = firebaseAuthManager.getIdToken(forceRefresh = true)
+                ?: return Result.failure(Exception("Не удалось получить Firebase токен"))
+
+            // 2. Отправляем Firebase токен на /api/auth/login
+            val response = httpClient.post("/api/auth/login") {
+                setBody(mapOf("firebaseToken" to firebaseToken))
+                header("Content-Type", "application/json")
+            }
+
+            if (!response.status.isSuccess()) {
+                val errorMsg = try { response.body<Map<String, String>>()["error"] } catch (_: Exception) { null }
+                return Result.failure(Exception(errorMsg ?: "Ошибка входа на сервере"))
+            }
+
+            val authResponse = response.body<AuthResponse>()
+            // 3. Сохраняем токены и роль
+            userPreferencesManager.saveAccessToken(authResponse.accessToken)
+            userPreferencesManager.saveRefreshToken(authResponse.refreshToken)
+            val role = UserRole.valueOf(authResponse.role.uppercase())
             userPreferencesManager.saveRole(role)
-            Log.d(TAG, "Роль получена: $role")
+
+            Log.d(TAG, "Login успешен, роль: $role")
             Result.success(role)
         } catch (e: Exception) {
-            Log.e(TAG, "Ошибка логина: ${e.message}", e)
+            Log.e(TAG, "Ошибка логина", e)
             Result.failure(e)
         }
     }
 
     override suspend fun register(email: String, password: String): Result<Unit> {
         return try {
-            Log.d(TAG, "Регистрация Firebase: $email")
-            firebaseAuth.createUserWithEmailAndPassword(email, password).await()
-            Log.d(TAG, "Firebase-пользователь создан")
+            // 1. Создаём только Firebase-аккаунт.
+            //    Запись на сервере и роль создаются позже, после выбора на экране RoleSelectionScreen.
+            firebaseAuthManager.signUp(email, password)
+
+            // 2. Возвращаем успех, чтобы UI перевёл пользователя на экран выбора роли.
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Ошибка регистрации: ${e.message}", e)
+            Log.e(TAG, "Ошибка регистрации", e)
             Result.failure(e)
         }
     }
 
     override suspend fun saveRole(role: UserRole): Result<Unit> {
-        return try {
-            val token = getAuthToken()
-            val userId = firebaseAuth.currentUser?.uid
-            val userEmail = firebaseAuth.currentUser?.email
-
-            if (token.isNullOrEmpty() || userId.isNullOrEmpty() || userEmail.isNullOrEmpty()) {
-                return Result.failure(Exception("Не удалось получить данные пользователя"))
-            }
-
-            Log.d(TAG, "Отправка RegisterRequest: id=$userId, role=${role.name.lowercase()}")
-            ktorClient.post("/api/auth/register") {
-                header("Authorization", "Bearer $token")
-                setBody(RegisterRequest(firebaseUid = userId, email = userEmail, role = role.name.lowercase()))
-            }
-
-            userPreferencesManager.saveRole(role)
-            Log.d(TAG, "Роль сохранена: $role")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Ошибка сохранения роли: ${e.message}", e)
-            Result.failure(e)
-        }
+        // Роль уже установлена на сервере при регистрации, этот метод не нужен.
+        // Если нужно менять роль – нужен отдельный эндпоинт.
+        userPreferencesManager.saveRole(role)
+        return Result.success(Unit)
     }
 
     override fun getRole(): UserRole? = userPreferencesManager.getRole()
 
-    override fun isUserLoggedIn(): Boolean = firebaseAuth.currentUser != null
+    override fun isUserLoggedIn(): Boolean = userPreferencesManager.getAccessToken() != null
 
     override fun logout() {
-        firebaseAuth.signOut()
-        userPreferencesManager.clearRole()
-        Log.d(TAG, "Пользователь вышел, роль очищена")
+        firebaseAuthManager.signOut()
+        userPreferencesManager.clearAll()
+    }
+
+    // Метод для обновления accessToken (используется в KtorClientFactory)
+    override suspend fun refreshAccessToken(): String? {
+        val refreshToken = userPreferencesManager.getRefreshToken() ?: return null
+        val result = refreshTokenApi.refresh(refreshToken)
+        if (result.isSuccess) {
+            val newToken = result.getOrNull()!!
+            userPreferencesManager.saveAccessToken(newToken)
+            return newToken
+        } else {
+            // Refresh не удался – выходим
+            logout()
+            return null
+        }
     }
 }
