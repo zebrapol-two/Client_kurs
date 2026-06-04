@@ -33,7 +33,6 @@ class StorekeeperViewModel(
     private var selectedThreshold: Int = DEFAULT_LOW_STOCK_THRESHOLD
 
     init {
-        // Загружаем товары один раз при создании ViewModel
         loadProducts()
     }
 

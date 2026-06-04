@@ -25,7 +25,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -44,21 +43,7 @@ fun StorekeeperHomeScreen(
     val error by viewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var searchHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
-
-    fun addToSearchHistory(rawQuery: String) {
-        val normalized = rawQuery.trim()
-        if (normalized.isBlank()) return
-        searchHistory = buildList {
-            add(normalized)
-            addAll(searchHistory.filterNot { it.equals(normalized, ignoreCase = true) })
-        }.take(3)
-    }
-
-    // Первая загрузка товаров происходит в ViewModel.init, здесь НЕ вызываем loadProducts()
-    // Будущий я, если я еще раз хочу вставить черезмерное обновление склада
-    // Засунь себе носок в рот, ей богу
+    var searchQuery by remember { mutableStateOf("") }
 
     // Первая загрузка товаров происходит в ViewModel.init, здесь НЕ вызываем loadProducts()
     // Будущий я, если я еще раз хочу вставить черезмерное обновление склада
@@ -76,10 +61,10 @@ fun StorekeeperHomeScreen(
         }
     }
 
-    val suggestions = remember(products, searchQuery, searchHistory) {
+    val suggestions = remember(products, searchQuery) {
         val query = searchQuery.trim().lowercase()
         if (query.isBlank()) {
-            searchHistory
+            emptyList()
         } else {
             products.asSequence()
                 .filter {
@@ -111,13 +96,10 @@ fun StorekeeperHomeScreen(
             StockKeeperSearchBar(
                 query = searchQuery,
                 onQueryChange = { searchQuery = it },
-                onSearch = { addToSearchHistory(it) },
                 placeholder = "Поиск по ID или названию",
                 suggestions = suggestions,
                 onSuggestionClick = { selected ->
-                    val resolvedQuery = selected.substringAfter("·", selected).trim()
-                    searchQuery = resolvedQuery
-                    addToSearchHistory(resolvedQuery)
+                    searchQuery = selected.substringAfter("·", selected).trim()
                 }
             )
         },
