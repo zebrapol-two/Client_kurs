@@ -22,6 +22,11 @@ data class StockUpdateRequest(
 @Serializable
 data class PurchaseCreateRequest(
     val productId: String,
-    val supplierId: Int,
+    val supplierId: String,
     val quantity: Int
+)
+
+@Serializable
+data class ReceiveGoodsRequest(
+    val quantity: Int? = null   // null = принять всё оставшееся
 )

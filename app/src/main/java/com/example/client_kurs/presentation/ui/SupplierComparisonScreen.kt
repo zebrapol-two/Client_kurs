@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -28,12 +29,13 @@ fun SupplierComparisonScreen(
 ) {
     val allProducts by viewModel.allProducts.collectAsState()
     val selectedProduct by viewModel.selectedProduct.collectAsState()
+    val selectedOffProduct by viewModel.selectedOffProduct.collectAsState()
     val supplierOffers by viewModel.supplierOffers.collectAsState()
     val marketPrice by viewModel.marketPrice.collectAsState()
     val selectedSupplier by viewModel.selectedSupplier.collectAsState()
     val purchaseQuantityInput by viewModel.purchaseQuantityInput.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val isSearching by viewModel.isSearching.collectAsState()
+    val isSearching by viewModel.isLoadingSearch.collectAsState()
     val error by viewModel.error.collectAsState()
     val successMessage by viewModel.successMessage.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -78,7 +80,7 @@ fun SupplierComparisonScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.onSearchQueryChange(it) },
-                label = { Text("Поиск товара (Open Prices)") },
+                label = { Text("Поиск товара (Open Food Facts)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -121,11 +123,29 @@ fun SupplierComparisonScreen(
                 }
             }
 
-            if (selectedProduct != null) {
-                Text(
-                    text = "Рыночная цена: ${"%.2f".format(marketPrice)} ₽",
-                    style = MaterialTheme.typography.titleSmall
-                )
+            val currentSelectedProduct = selectedProduct
+            if (currentSelectedProduct != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Рыночная цена: ${"%.2f".format(marketPrice)} ₽",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    if (!currentSelectedProduct.isLocal) {
+                        NutriscoreBadge(selectedOffProduct?.nutritionGrades ?: selectedOffProduct?.nutriscoreData?.grade)
+                    }
+                }
+
+                selectedOffProduct?.nutriscoreData?.let { data ->
+                    Text(
+                        text = "Nutri-Score: ${data.grade.uppercase()} · score ${data.score} · -${data.negative_points}/+${data.positive_points}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 if (!isLoading && supplierOffers.isEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -191,6 +211,31 @@ fun SupplierComparisonScreen(
 }
 
 @Composable
+private fun NutriscoreBadge(grade: String?) {
+    val normalizedGrade = grade?.trim()?.takeIf { it.isNotEmpty() }?.uppercase() ?: return
+    val color = when (normalizedGrade.lowercase()) {
+        "a" -> Color(0xFF2E7D32)
+        "b" -> Color(0xFF689F38)
+        "c" -> Color(0xFFFFB300)
+        "d" -> Color(0xFFF57C00)
+        "e" -> Color(0xFFD32F2F)
+        else -> Color.Gray
+    }
+
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = color,
+        contentColor = Color.White
+    ) {
+        Text(
+            text = normalizedGrade,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelMedium
+        )
+    }
+}
+
+@Composable
 private fun ProductDisplayRow(
     product: DisplayProduct,
     isSelected: Boolean,
@@ -217,10 +262,10 @@ private fun ProductDisplayRow(
             overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.width(8.dp))
-        if (product.price != null) {
-            Text("${"%.2f".format(product.price)} ₽", maxLines = 1)
-        } else {
-            Text(product.id, maxLines = 1, style = MaterialTheme.typography.labelSmall)
+        when {
+            product.price != null -> Text("${"%.2f".format(product.price)} ₽", maxLines = 1)
+            product.marketPrice != null -> Text("${"%.2f".format(product.marketPrice)} ₽", maxLines = 1)
+            else -> Text(product.id, maxLines = 1, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -232,7 +277,9 @@ private fun SupplierOfferRow(
     onOrderClick: () -> Unit
 ) {
     val saving = marketPrice - offer.price
-    val savingText = if (saving > 0) "✅ Экономия ${"%.2f".format(saving)} руб" else "Без экономии"
+    val roundedSaving = (saving * 100).toInt() / 100.0
+    val isSaving = roundedSaving > 0.01
+    val savingText = if (isSaving) "Экономия ${"%.2f".format(roundedSaving)} руб" else "Без экономии"
 
     Column(
         modifier = Modifier

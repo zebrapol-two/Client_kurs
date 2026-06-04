@@ -1,18 +1,13 @@
 package com.example.client_kurs.data.remote.api
 
-import com.example.client_kurs.data.remote.dto.CreateOrderRequest
-import com.example.client_kurs.data.remote.dto.OrderDto
-import com.example.client_kurs.data.remote.dto.ProductDto
-import com.example.client_kurs.data.remote.dto.PurchaseOrderDto
-import com.example.client_kurs.data.remote.dto.ReceiveGoodsRequest
-import com.example.client_kurs.data.remote.dto.RegisterRequest
-import com.example.client_kurs.data.remote.dto.StockUpdateRequest
-import com.example.client_kurs.data.remote.dto.UserRoleResponse
+import com.example.client_kurs.data.remote.dto.*
 import com.example.client_kurs.domain.model.AnalyticsOverview
+import com.example.client_kurs.domain.model.SupplierOffer
 import com.example.client_kurs.domain.model.TopSellingProduct
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -35,6 +30,22 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
 
     override suspend fun getProducts(): List<ProductDto> {
         val response = httpClient.get("/api/products")
+        return safeResponse(response)
+    }
+
+    override suspend fun externalSearchProducts(query: String): List<ExternalProductDto> {
+        val response = httpClient.get("/api/external/search") {
+            parameter("query", query)
+            parameter("pageSize", 20)
+        }
+        return safeResponse(response)
+    }
+
+    override suspend fun searchProducts(query: String): List<OpenFoodFactsProductDto> {
+        val response = httpClient.get("/api/external/search") {
+            parameter("query", query)
+            parameter("pageSize", 20)
+        }
         return safeResponse(response)
     }
 
@@ -89,5 +100,47 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
     override suspend fun getTopSelling(): List<TopSellingProduct> {
         val response = httpClient.get("/api/analytics/top-selling")
         return safeResponse(response)
+    }
+
+    override suspend fun createExternalProduct(code: String, productName: String, marketPrice: Double): Result<Unit> {
+        return try {
+            val response = httpClient.post("/api/products/external") {
+                setBody(mapOf("code" to code, "productName" to productName, "marketPrice" to marketPrice))
+            }
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                val error = try {
+                    response.body<Map<String, String>>()["error"] ?: "Failed to create product"
+                } catch (e: Exception) {
+                    "Failed to create product"
+                }
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getExternalSuppliers(code: String, marketPrice: Double): Result<List<SupplierOffer>> {
+        return try {
+            val response = httpClient.get("/api/external/suppliers/$code") {
+                parameter("marketPrice", marketPrice)
+            }
+            if (response.status.isSuccess()) {
+                val dtos = response.body<List<ExternalSupplierDto>>()
+                val offers = dtos.map { SupplierOffer(it.supplierId, it.supplierName, it.price) }
+                Result.success(offers)
+            } else {
+                val error = try {
+                    response.body<Map<String, String>>()["error"] ?: "Failed to get external suppliers"
+                } catch (e: Exception) {
+                    "Failed to get external suppliers"
+                }
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
