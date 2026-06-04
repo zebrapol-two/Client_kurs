@@ -33,8 +33,10 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
         return response.body()
     }
 
-    override suspend fun getProducts(): List<ProductDto> =
-        httpClient.get("/api/products").body()
+    override suspend fun getProducts(): List<ProductDto> {
+        val response = httpClient.get("/api/products")
+        return safeResponse(response)
+    }
 
     override suspend fun addProduct(dto: ProductDto): ProductDto =
         httpClient.post("/api/products") { setBody(dto) }.body()
@@ -43,36 +45,42 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
         httpClient.put("/api/products/$productId/stock") { setBody(request) }
     }
 
-    override suspend fun getLowInventory(): List<ProductDto> =
-        httpClient.get("/api/inventory/low").body()
+    override suspend fun getLowInventory(): List<ProductDto> {
+        val response = httpClient.get("/api/inventory/low")
+        return safeResponse(response)
+    }
 
     override suspend fun createOrder(request: CreateOrderRequest) {
         httpClient.post("/api/order/create") { setBody(request) }
     }
 
-    override suspend fun getOrders(): List<OrderDto> =
-        httpClient.get("/api/orders/my").body()
+    override suspend fun getOrders(): List<OrderDto> {
+        val response = httpClient.get("/api/orders/my")
+        return safeResponse(response)
+    }
 
-    override suspend fun getUserRole(userId: String): UserRoleResponse =
-        httpClient.get("/api/auth/role/$userId").body()
+    override suspend fun getUserRole(userId: String): UserRoleResponse {
+        val response = httpClient.get("/api/auth/role/$userId")
+        return safeResponse(response)
+    }
 
     override suspend fun registerUser(request: RegisterRequest) {
         httpClient.post("/api/auth/register") { setBody(request) }
     }
+
     override suspend fun getPendingPurchases(): List<PurchaseOrderDto> {
         val response = httpClient.get("/api/purchases/pending")
-        return safeResponse(response)  // используй safeResponse из предыдущих советов
+        return safeResponse(response)
     }
 
     override suspend fun receiveGoods(purchaseId: String, request: ReceiveGoodsRequest) {
-        val response = httpClient.put("/api/purchases/$purchaseId/receive") {
-            setBody(request)
-        }
+        val response = httpClient.put("/api/purchases/$purchaseId/receive") { setBody(request) }
         if (!response.status.isSuccess()) {
             val error = response.body<Map<String, String>>()
             throw Exception(error["error"] ?: "Ошибка приёмки")
         }
     }
+
     override suspend fun getAnalyticsOverview(): AnalyticsOverview {
         val response = httpClient.get("/api/analytics/overview")
         return safeResponse(response)

@@ -1,8 +1,9 @@
 package com.example.client_kurs.data.remote
 
 import android.util.Log
+import com.example.client_kurs.data.local.UserPreferencesManager
+import com.example.client_kurs.domain.repository.AuthRepository
 import com.example.client_kurs.utils.ServerConfig
-import com.google.firebase.auth.FirebaseAuth
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
@@ -16,18 +17,16 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 
-/**
- * Фабрика для создания [HttpClient].
- * Устанавливает ContentNegotiation, Logging, HttpTimeout и плагин Auth,
- * который автоматически добавляет заголовок `Authorization: Bearer <token>`
- * к каждому запросу, получая токен из FirebaseAuth.
- */
-object KtorClientFactory {
-
-    private const val TAG = "KtorClientFactory"
+class KtorClientFactory(
+    private val prefs: UserPreferencesManager,
+    private val authRepository: AuthRepository
+) {
+    private val mutex = Mutex()
+    private var refreshing = false
 
     fun create(): HttpClient = HttpClient(Android) {
         install(HttpTimeout) {
@@ -39,7 +38,7 @@ object KtorClientFactory {
         install(Logging) {
             logger = object : io.ktor.client.plugins.logging.Logger {
                 override fun log(message: String) {
-                    Log.d(TAG, message)
+                    Log.d("KtorClient", message)
                 }
             }
             level = LogLevel.BODY
@@ -53,33 +52,38 @@ object KtorClientFactory {
             })
         }
 
-        install(Auth) {
-            bearer {
-                loadTokens {
-                    fetchBearerTokens()
-                }
-                refreshTokens {
-                    fetchBearerTokens()
-                }
-            }
-        }
-
         defaultRequest {
             url(ServerConfig.BASE_URL)
             contentType(ContentType.Application.Json)
         }
-    }
 
-    private suspend fun fetchBearerTokens(): BearerTokens? {
-        return try {
-            val token = FirebaseAuth.getInstance().currentUser
-                ?.getIdToken(false)
-                ?.await()
-                ?.token
-            if (token != null) BearerTokens(accessToken = token, refreshToken = "") else null
-        } catch (e: Exception) {
-            Log.e(TAG, "Ошибка получения Firebase токена: ${e.message}")
-            null
+        install(Auth) {
+            bearer {
+                loadTokens {
+                    val token = prefs.getAccessToken()
+                    Log.d("KtorClient", "loadTokens: token = ${token?.take(20)}...")
+                    if (token != null) BearerTokens(token, "") else null
+                }
+                refreshTokens {
+                    mutex.withLock {
+                        if (refreshing) {
+                            return@refreshTokens BearerTokens(prefs.getAccessToken() ?: "", "")
+                        }
+                        refreshing = true
+                        try {
+                            val newToken = authRepository.refreshAccessToken()
+                            Log.d("KtorClient", "refreshTokens: newToken = ${newToken?.take(20)}...")
+                            if (newToken != null) {
+                                BearerTokens(newToken, "")
+                            } else {
+                                null
+                            }
+                        } finally {
+                            refreshing = false
+                        }
+                    }
+                }
+            }
         }
     }
 }

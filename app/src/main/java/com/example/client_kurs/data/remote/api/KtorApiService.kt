@@ -8,6 +8,8 @@ import com.example.client_kurs.data.remote.dto.ReceiveGoodsRequest
 import com.example.client_kurs.data.remote.dto.RegisterRequest
 import com.example.client_kurs.data.remote.dto.StockUpdateRequest
 import com.example.client_kurs.data.remote.dto.UserRoleResponse
+import com.example.client_kurs.domain.model.AnalyticsOverview
+import com.example.client_kurs.domain.model.TopSellingProduct
 
 interface KtorApiService {
 
@@ -38,4 +40,6 @@ interface KtorApiService {
     suspend fun getPendingPurchases(): List<PurchaseOrderDto>
 
     suspend fun receiveGoods(purchaseId: String, request: ReceiveGoodsRequest)
+    suspend fun getAnalyticsOverview(): AnalyticsOverview
+    suspend fun getTopSelling(): List<TopSellingProduct>
 }
