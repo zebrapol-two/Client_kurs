@@ -8,5 +8,6 @@ data class DisplayProduct(
     val id: String,            // штрихкод или id товара
     val name: String,
     val price: Double?,        // цена, если локальный товар (может быть null для OFF)
+    val marketPrice: Double? = null, // цена на рынке для внешних товаров
     val isLocal: Boolean       // true = со склада, false = из OFF
 )
