@@ -27,7 +27,7 @@ class InventoryRepositoryImpl(
 
     override suspend fun finishInventory(adjustments: List<InventoryAdjustment>): Result<Unit> {
         return try {
-            httpClient.post("/inventory/complete") {
+            httpClient.post("/api/inventory/complete") {
                 setBody(
                     CompleteInventoryRequest(
                         adjustments = adjustments.map { it.toDto() }

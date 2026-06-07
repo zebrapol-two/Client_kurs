@@ -1,8 +1,7 @@
 package com.example.client_kurs.data.remote.api
 
 import com.example.client_kurs.data.remote.dto.CreateOrderRequest
-import com.example.client_kurs.data.remote.dto.ExternalProductDto
-import com.example.client_kurs.data.remote.dto.OpenFoodFactsProductDto
+import com.example.client_kurs.data.remote.dto.FakeStoreProductDto
 import com.example.client_kurs.data.remote.dto.OrderDto
 import com.example.client_kurs.data.remote.dto.ProductDto
 import com.example.client_kurs.data.remote.dto.PurchaseOrderDto
@@ -18,9 +17,7 @@ interface KtorApiService {
 
     suspend fun getProducts(): List<ProductDto>
 
-    suspend fun searchProducts(query: String): List<OpenFoodFactsProductDto>
-
-    suspend fun externalSearchProducts(query: String): List<ExternalProductDto>
+    suspend fun searchProducts(query: String): List<FakeStoreProductDto>
 
     suspend fun addProduct(dto: ProductDto): ProductDto
 

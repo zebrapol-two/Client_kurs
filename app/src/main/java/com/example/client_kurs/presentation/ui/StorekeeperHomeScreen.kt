@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -43,7 +44,17 @@ fun StorekeeperHomeScreen(
     val error by viewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
+
+    fun addToSearchHistory(rawQuery: String) {
+        val normalized = rawQuery.trim()
+        if (normalized.isBlank()) return
+        searchHistory = buildList {
+            add(normalized)
+            addAll(searchHistory.filterNot { it.equals(normalized, ignoreCase = true) })
+        }.take(3)
+    }
 
     // Первая загрузка товаров происходит в ViewModel.init, здесь НЕ вызываем loadProducts()
     // Будущий я, если я еще раз хочу вставить черезмерное обновление склада
@@ -61,10 +72,10 @@ fun StorekeeperHomeScreen(
         }
     }
 
-    val suggestions = remember(products, searchQuery) {
+    val suggestions = remember(products, searchQuery, searchHistory) {
         val query = searchQuery.trim().lowercase()
         if (query.isBlank()) {
-            emptyList()
+            searchHistory
         } else {
             products.asSequence()
                 .filter {
@@ -96,10 +107,13 @@ fun StorekeeperHomeScreen(
             StockKeeperSearchBar(
                 query = searchQuery,
                 onQueryChange = { searchQuery = it },
+                onSearch = { addToSearchHistory(it) },
                 placeholder = "Поиск по ID или названию",
                 suggestions = suggestions,
                 onSuggestionClick = { selected ->
-                    searchQuery = selected.substringAfter("·", selected).trim()
+                    val resolvedQuery = selected.substringAfter("·", selected).trim()
+                    searchQuery = resolvedQuery
+                    addToSearchHistory(resolvedQuery)
                 }
             )
         },

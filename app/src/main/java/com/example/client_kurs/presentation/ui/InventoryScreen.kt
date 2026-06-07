@@ -115,7 +115,8 @@ fun InventoryScreen(
                         .fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(products, key = { it.id }) { product ->
+                    // Явно указываем тип Product для вывода ключа
+                    items(products, key = { product: Product -> product.id }) { product ->
                         AnimatedVisibility(visible = true) {
                             InventoryRow(
                                 product = product,
@@ -203,7 +204,7 @@ private fun InventoryReportDialog(
                     discrepancies.forEach {
                         Text(
                             text = "${it.productName}: ${it.expectedQuantity} → ${it.actualQuantity}, " +
-                                "Δ ${it.quantityDifference} шт, ${"%.2f".format(it.amountDifference)} ₽"
+                                    "Δ ${it.quantityDifference} шт, ${"%.2f".format(it.amountDifference)} ₽"
                         )
                     }
                     Text(

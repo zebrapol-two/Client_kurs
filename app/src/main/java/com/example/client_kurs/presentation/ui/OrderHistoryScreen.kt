@@ -45,7 +45,7 @@ fun OrderHistoryScreen(
     val isLoading by viewModel.isOrdersLoading.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.loadOrders()
+        viewModel.refreshOrdersFromServer()
     }
 
     Scaffold(
@@ -104,16 +104,15 @@ private fun OrderCard(order: Order) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Заголовок: ID (с обрезанием) и цена на одной строке
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Заказ #${order.id.take(6)}…",   // обрезаем UUID до 6 символов
+                    text = "Заказ #${order.id.take(6)}…",
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f, fill = false) // разрешаем перенос, если нужно
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 Text(
                     text = "%.2f ₽".format(order.totalPrice),
@@ -123,7 +122,6 @@ private fun OrderCard(order: Order) {
                 )
             }
 
-            // Дата
             Text(
                 text = order.timestamp,
                 style = MaterialTheme.typography.bodySmall,
@@ -134,13 +132,11 @@ private fun OrderCard(order: Order) {
             HorizontalDivider()
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Элементы заказа
             order.items.forEach { item ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // ID товара тоже можно обрезать для читаемости
                     Text(
                         text = "Товар #${item.productId.take(8)}…",
                         style = MaterialTheme.typography.bodyMedium

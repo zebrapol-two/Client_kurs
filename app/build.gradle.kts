@@ -40,11 +40,9 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
-<<<<<<< HEAD
-=======
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
+    implementation("com.patrykandpatrick.vico:compose:2.5.0")
 
->>>>>>> 8119b08 (Исправление логики отправки запросов на получение имеющихся товаров на складе)
     // viewmodel lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
@@ -70,6 +68,7 @@ dependencies {
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("io.ktor:ktor-client-logging:$ktorVersion")
+    implementation("io.ktor:ktor-client-auth:$ktorVersion")
 
     // Firebase Auth
     implementation(platform("com.google.firebase:firebase-bom:34.12.0"))

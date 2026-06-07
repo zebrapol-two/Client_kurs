@@ -13,7 +13,6 @@ interface AuthRepository {
     fun getRole(): UserRole?
     /** True when a Firebase user is currently signed in. */
     fun isUserLoggedIn(): Boolean
-    fun logout()
+    suspend fun logout()
     suspend fun refreshAccessToken(): String?
 }
-

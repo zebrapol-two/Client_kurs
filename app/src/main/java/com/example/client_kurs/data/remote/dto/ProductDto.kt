@@ -5,23 +5,22 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ProductDto(
-    val id: Int? = null,
+    val id: String,
     val name: String,
-    val price: Double,
+    val price: String,
     val quantity: Int
 ) {
     fun toDomain() = Product(
-        id = id ?: 0,
+        id = id,
         name = name,
-        price = price,
+        price = price.toDoubleOrNull() ?: 0.0,
         quantity = quantity
     )
 }
 
 fun Product.toDto() = ProductDto(
-    id = if (id == 0) null else id,
+    id = id,
     name = name,
-    price = price,
+    price = price.toString(),
     quantity = quantity
 )
-

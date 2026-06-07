@@ -24,4 +24,3 @@ data class OrderDto(
     val totalPrice: String,
     val createdAt: String? = null
 )
-

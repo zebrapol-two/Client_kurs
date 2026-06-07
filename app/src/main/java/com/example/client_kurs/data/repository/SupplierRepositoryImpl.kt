@@ -10,6 +10,9 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 
 class SupplierRepositoryImpl(
@@ -41,11 +44,23 @@ class SupplierRepositoryImpl(
         quantity: Int
     ): Result<Unit> {
         return try {
-            httpClient.post("/api/purchase/create") {
+            val response = httpClient.post("/api/purchase/create") {
+                contentType(ContentType.Application.Json)
                 setBody(PurchaseCreateRequest(productId, supplierId, quantity))
             }
-            Result.success(Unit)
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                val errorBody = try {
+                    response.body<Map<String, String>>()
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+                val errorMsg = errorBody["error"] ?: "Ошибка сервера: ${response.status.value}"
+                Result.failure(Exception(errorMsg))
+            }
         } catch (e: Exception) {
+            e.printStackTrace()
             Result.failure(e)
         }
     }

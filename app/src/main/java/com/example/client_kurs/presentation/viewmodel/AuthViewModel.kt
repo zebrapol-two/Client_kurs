@@ -24,7 +24,6 @@ class AuthViewModel(
     private val _authState = MutableStateFlow(AuthState())
     val authState = _authState.asStateFlow()
 
-    // Временное хранение учётных данных для выбора роли
     private var pendingEmail: String? = null
     private var pendingPassword: String? = null
 
@@ -67,14 +66,12 @@ class AuthViewModel(
         viewModelScope.launch {
             authRepository.register(email, password)
                 .onSuccess {
-                    // Сохраняем данные для последующего выбора роли
                     pendingEmail = email
                     pendingPassword = password
-                    // Переводим в состояние "залогинен, но роль не выбрана"
                     _authState.value = AuthState(
                         isLoading = false,
                         error = null,
-                        isLoggedIn = true,   // важно: true, но role = null
+                        isLoggedIn = true,
                         role = null,
                         isInitialized = true
                     )
@@ -90,7 +87,6 @@ class AuthViewModel(
         }
     }
 
-    // Вызывается при выборе роли на экране RoleSelectionScreen
     fun submitRole(role: UserRole) {
         val email = pendingEmail
         val password = pendingPassword
@@ -100,7 +96,6 @@ class AuthViewModel(
         }
         _authState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
-            // 1. Отправляем выбранную роль на сервер
             val registerWithRoleResult = authRepository.registerWithRole(email, password, role.name.lowercase())
             if (registerWithRoleResult.isFailure) {
                 _authState.update {
@@ -111,7 +106,6 @@ class AuthViewModel(
                 }
                 return@launch
             }
-            // 2. Выполняем вход, чтобы получить токены (роль уже на сервере)
             authRepository.login(email, password)
                 .onSuccess { savedRole ->
                     _authState.value = AuthState(
@@ -142,14 +136,16 @@ class AuthViewModel(
     }
 
     fun logout() {
-        authRepository.logout()
-        _authState.value = AuthState(
-            isLoggedIn = false,
-            role = null,
-            isInitialized = true
-        )
-        pendingEmail = null
-        pendingPassword = null
+        viewModelScope.launch {
+            authRepository.logout()
+            _authState.value = AuthState(
+                isLoggedIn = false,
+                role = null,
+                isInitialized = true
+            )
+            pendingEmail = null
+            pendingPassword = null
+        }
     }
 
     fun cancelRoleSelection() {

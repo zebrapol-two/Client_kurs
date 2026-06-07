@@ -28,5 +28,12 @@ data class PurchaseCreateRequest(
 
 @Serializable
 data class ReceiveGoodsRequest(
-    val quantity: Int? = null   // null = принять всё оставшееся
+    val quantity: Int? = null
+)
+
+@Serializable
+data class CreateExternalProductRequest(
+    val code: String,
+    val productName: String,
+    val marketPrice: Double
 )

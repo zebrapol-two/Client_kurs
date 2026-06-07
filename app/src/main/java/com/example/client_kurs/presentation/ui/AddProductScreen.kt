@@ -93,11 +93,10 @@ fun AddProductScreen(
             Button(
                 enabled = !isLoading && id.isNotBlank() && name.isNotBlank() && price.isNotBlank() && quantity.isNotBlank(),
                 onClick = {
-                    val parsedId = id.toIntOrNull()
                     val parsedPrice = price.toDoubleOrNull()
                     val parsedQuantity = quantity.toIntOrNull()
 
-                    if (parsedId == null || parsedPrice == null || parsedQuantity == null) {
+                    if (parsedPrice == null || parsedQuantity == null) {
                         scope.launch {
                             snackbarHostState.showSnackbar("Проверьте корректность введенных данных")
                         }

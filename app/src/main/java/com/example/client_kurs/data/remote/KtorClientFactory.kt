@@ -2,7 +2,6 @@ package com.example.client_kurs.data.remote
 
 import android.util.Log
 import com.example.client_kurs.data.local.UserPreferencesManager
-import com.example.client_kurs.domain.repository.AuthRepository
 import com.example.client_kurs.utils.ServerConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
@@ -16,6 +15,7 @@ import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import io.ktor.http.encodedPath
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -23,10 +23,10 @@ import kotlinx.serialization.json.Json
 
 class KtorClientFactory(
     private val prefs: UserPreferencesManager,
-    private val authRepository: AuthRepository
+    private val refreshTokenApi: RefreshTokenApi
 ) {
-    private val mutex = Mutex()
-    private var refreshing = false
+    private val refreshMutex = Mutex()
+    private var isRefreshing = false
 
     fun create(): HttpClient = HttpClient(Android) {
         install(HttpTimeout) {
@@ -59,27 +59,57 @@ class KtorClientFactory(
 
         install(Auth) {
             bearer {
-                loadTokens {
-                    val token = prefs.getAccessToken()
-                    Log.d("KtorClient", "loadTokens: token = ${token?.take(20)}...")
-                    if (token != null) BearerTokens(token, "") else null
+                // Не отправляем access token на refresh-запрос, чтобы не ловить рекурсию.
+                sendWithoutRequest { request ->
+                    !request.url.encodedPath.contains("/api/auth/refresh")
                 }
+
+                loadTokens {
+                    val access = prefs.getAccessToken()
+                    val refresh = prefs.getRefreshToken()
+                    if (access.isNullOrBlank() || refresh.isNullOrBlank()) {
+                        null
+                    } else {
+                        BearerTokens(access, refresh)
+                    }
+                }
+
                 refreshTokens {
-                    mutex.withLock {
-                        if (refreshing) {
-                            return@refreshTokens BearerTokens(prefs.getAccessToken() ?: "", "")
-                        }
-                        refreshing = true
-                        try {
-                            val newToken = authRepository.refreshAccessToken()
-                            Log.d("KtorClient", "refreshTokens: newToken = ${newToken?.take(20)}...")
-                            if (newToken != null) {
-                                BearerTokens(newToken, "")
-                            } else {
+                    refreshMutex.withLock {
+                        if (isRefreshing) {
+                            val cachedAccess = prefs.getAccessToken()
+                            val cachedRefresh = prefs.getRefreshToken()
+                            return@refreshTokens if (cachedAccess.isNullOrBlank() || cachedRefresh.isNullOrBlank()) {
                                 null
+                            } else {
+                                BearerTokens(cachedAccess, cachedRefresh)
                             }
+                        }
+
+                        isRefreshing = true
+                        try {
+                            val currentRefresh = prefs.getRefreshToken()
+                            if (currentRefresh.isNullOrBlank()) {
+                                prefs.clearAll()
+                                return@refreshTokens null
+                            }
+
+                            val result = refreshTokenApi.refresh(currentRefresh)
+                            if (result.isFailure) {
+                                prefs.clearAll()
+                                return@refreshTokens null
+                            }
+
+                            val tokens = result.getOrNull() ?: return@refreshTokens null
+                            prefs.saveAccessToken(tokens.accessToken)
+                            prefs.saveRefreshToken(tokens.refreshToken)
+                            BearerTokens(tokens.accessToken, tokens.refreshToken)
+                        } catch (e: Exception) {
+                            Log.e("KtorClient", "refreshTokens failed", e)
+                            prefs.clearAll()
+                            null
                         } finally {
-                            refreshing = false
+                            isRefreshing = false
                         }
                     }
                 }

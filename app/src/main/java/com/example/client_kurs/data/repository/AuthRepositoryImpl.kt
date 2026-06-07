@@ -10,15 +10,20 @@ import com.example.client_kurs.domain.model.UserRole
 import com.example.client_kurs.domain.repository.AuthRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.auth.Auth
+import io.ktor.client.plugins.auth.providers.BearerAuthProvider
+import io.ktor.client.plugins.plugin
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 
 class AuthRepositoryImpl(
     private val firebaseAuthManager: FirebaseAuthManager,
     private val userPreferencesManager: UserPreferencesManager,
-    private val httpClient: HttpClient,  // новый клиент (не авторизованный, для логина)
+    private val httpClient: HttpClient,
+    private val authorizedHttpClient: HttpClient,
     private val refreshTokenApi: RefreshTokenApi
 ) : AuthRepository {
 
@@ -110,9 +115,21 @@ class AuthRepositoryImpl(
 
     override fun isUserLoggedIn(): Boolean = userPreferencesManager.getAccessToken() != null
 
-    override fun logout() {
-        firebaseAuthManager.signOut()
-        userPreferencesManager.clearAll()
+    override suspend fun logout() {
+        val accessToken = userPreferencesManager.getAccessToken()
+
+        try {
+            if (!accessToken.isNullOrBlank()) {
+                httpClient.post("/api/auth/logout") {
+                    header(HttpHeaders.Authorization, "Bearer $accessToken")
+                    header(HttpHeaders.ContentType, "application/json")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Logout API failed, clearing local session anyway", e)
+        } finally {
+            clearLocalSession()
+        }
     }
 
     // Метод для обновления accessToken (используется в KtorClientFactory)
@@ -120,13 +137,29 @@ class AuthRepositoryImpl(
         val refreshToken = userPreferencesManager.getRefreshToken() ?: return null
         val result = refreshTokenApi.refresh(refreshToken)
         if (result.isSuccess) {
-            val newToken = result.getOrNull()!!
-            userPreferencesManager.saveAccessToken(newToken)
-            return newToken
+            val tokens = result.getOrNull() ?: return null
+            userPreferencesManager.saveAccessToken(tokens.accessToken)
+            userPreferencesManager.saveRefreshToken(tokens.refreshToken)
+            return tokens.accessToken
         } else {
-            // Refresh не удался – выходим
-            logout()
+            // Refresh не удался — очищаем сессию, чтобы не зациклить refresh-попытки.
+            clearLocalSession()
             return null
+        }
+    }
+
+    private fun clearLocalSession() {
+        firebaseAuthManager.signOut()
+        userPreferencesManager.clearAll()
+
+        try {
+            val authPlugin = authorizedHttpClient.plugin(Auth)
+            authPlugin.providers
+                .filterIsInstance<BearerAuthProvider>()
+                .firstOrNull()
+                ?.clearToken()
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to clear Ktor bearer cache", e)
         }
     }
 }

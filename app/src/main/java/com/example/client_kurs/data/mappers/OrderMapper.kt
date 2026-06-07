@@ -8,7 +8,7 @@ fun OrderItemDto.toDomainOrderItem() = OrderItem(
     productId = productId,
     quantity = quantity,
 
-)
+    )
 
 /** Преобразует доменную модель [OrderItem] в [OrderItemDto] для отправки на сервер. */
 fun OrderItem.toOrderItemDto() = OrderItemDto(

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Client_kurs</string>
+    <string name="back_arrow_label">← Назад</string>
+    <string name="back_to_auth_content_description">Назад к авторизации</string>
 </resources>

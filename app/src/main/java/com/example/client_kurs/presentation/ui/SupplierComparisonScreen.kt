@@ -13,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -29,7 +28,6 @@ fun SupplierComparisonScreen(
 ) {
     val allProducts by viewModel.allProducts.collectAsState()
     val selectedProduct by viewModel.selectedProduct.collectAsState()
-    val selectedOffProduct by viewModel.selectedOffProduct.collectAsState()
     val supplierOffers by viewModel.supplierOffers.collectAsState()
     val marketPrice by viewModel.marketPrice.collectAsState()
     val selectedSupplier by viewModel.selectedSupplier.collectAsState()
@@ -76,11 +74,10 @@ fun SupplierComparisonScreen(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Поиск
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.onSearchQueryChange(it) },
-                label = { Text("Поиск товара (Open Food Facts)") },
+                label = { Text("Поиск товара (FakeStoreAPI)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -88,7 +85,6 @@ fun SupplierComparisonScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
-            // Ошибка поиска и кнопка повтора
             if (searchError != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -125,27 +121,11 @@ fun SupplierComparisonScreen(
 
             val currentSelectedProduct = selectedProduct
             if (currentSelectedProduct != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Text(
+                    text = "Рыночная цена: ${"%.2f".format(marketPrice)} ₽",
+                    style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Рыночная цена: ${"%.2f".format(marketPrice)} ₽",
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    if (!currentSelectedProduct.isLocal) {
-                        NutriscoreBadge(selectedOffProduct?.nutritionGrades ?: selectedOffProduct?.nutriscoreData?.grade)
-                    }
-                }
-
-                selectedOffProduct?.nutriscoreData?.let { data ->
-                    Text(
-                        text = "Nutri-Score: ${data.grade.uppercase()} · score ${data.score} · -${data.negative_points}/+${data.positive_points}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                )
 
                 if (!isLoading && supplierOffers.isEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -206,31 +186,6 @@ fun SupplierComparisonScreen(
                     Text("Отмена")
                 }
             }
-        )
-    }
-}
-
-@Composable
-private fun NutriscoreBadge(grade: String?) {
-    val normalizedGrade = grade?.trim()?.takeIf { it.isNotEmpty() }?.uppercase() ?: return
-    val color = when (normalizedGrade.lowercase()) {
-        "a" -> Color(0xFF2E7D32)
-        "b" -> Color(0xFF689F38)
-        "c" -> Color(0xFFFFB300)
-        "d" -> Color(0xFFF57C00)
-        "e" -> Color(0xFFD32F2F)
-        else -> Color.Gray
-    }
-
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = color,
-        contentColor = Color.White
-    ) {
-        Text(
-            text = normalizedGrade,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            style = MaterialTheme.typography.labelMedium
         )
     }
 }

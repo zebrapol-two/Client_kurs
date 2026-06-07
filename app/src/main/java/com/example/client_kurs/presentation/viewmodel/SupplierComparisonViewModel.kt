@@ -3,13 +3,8 @@ package com.example.client_kurs.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.client_kurs.data.remote.api.KtorApiService
-import com.example.client_kurs.data.remote.dto.ExternalProductDto
-import com.example.client_kurs.data.remote.dto.OpenFoodFactsProductDto
+import com.example.client_kurs.data.remote.dto.FakeStoreProductDto
 import com.example.client_kurs.domain.model.DisplayProduct
-import com.example.client_kurs.domain.model.Nutriments
-import com.example.client_kurs.domain.model.NutriscoreComponent
-import com.example.client_kurs.domain.model.NutriscoreData
-import com.example.client_kurs.domain.model.OffProductItem
 import com.example.client_kurs.domain.model.SupplierOffer
 import com.example.client_kurs.domain.usecase.CreatePurchaseUseCase
 import com.example.client_kurs.domain.usecase.GetProductsUseCase
@@ -44,7 +39,6 @@ class SupplierComparisonViewModel(
 
     private data class SearchCacheEntry(
         val results: List<DisplayProduct>,
-        val rawResults: Map<String, OffProductItem>,
         val cachedAt: Long
     )
 
@@ -60,11 +54,6 @@ class SupplierComparisonViewModel(
 
     private val _selectedProduct = MutableStateFlow<DisplayProduct?>(null)
     val selectedProduct: StateFlow<DisplayProduct?> = _selectedProduct.asStateFlow()
-
-    private val _selectedOffProduct = MutableStateFlow<OffProductItem?>(null)
-    val selectedOffProduct: StateFlow<OffProductItem?> = _selectedOffProduct.asStateFlow()
-
-    private val _offProductsRaw = MutableStateFlow<Map<String, OffProductItem>>(emptyMap())
 
     private val _supplierOffers = MutableStateFlow<List<SupplierOffer>>(emptyList())
     val supplierOffers: StateFlow<List<SupplierOffer>> = _supplierOffers.asStateFlow()
@@ -110,22 +99,17 @@ class SupplierComparisonViewModel(
 
         if (normalizedQuery.isBlank()) {
             _offProducts.value = emptyList()
-            _offProductsRaw.value = emptyMap()
             _isLoadingSearch.value = false
             return
         }
 
-        val cacheKey = normalizedQuery.lowercase() + "|20"
+        val cacheKey = normalizedQuery.lowercase()
         if (!forceRefresh) {
             val cached = searchCacheMutex.withLock {
                 searchCache[cacheKey]?.takeIf { System.currentTimeMillis() - it.cachedAt <= searchCacheTtlMs }
             }
             if (cached != null) {
                 _offProducts.value = cached.results
-                _offProductsRaw.value = cached.rawResults
-                _selectedOffProduct.value = _selectedProduct.value
-                    ?.takeIf { !it.isLocal }
-                    ?.let { cached.rawResults[it.id] }
                 return
             }
         }
@@ -133,27 +117,19 @@ class SupplierComparisonViewModel(
         _isLoadingSearch.value = true
         try {
             val results = apiService.searchProducts(normalizedQuery)
-            val offItems = results.map { it.toOffProductItem() }
-            val items = offItems.map { item ->
+            val items = results.map { product ->
                 DisplayProduct(
-                    id = item.code,
-                    name = item.productName ?: item.brands ?: "Без названия",
+                    id = product.code,
+                    name = product.productName ?: "Без названия",
                     price = null,
-                    marketPrice = item.marketPrice,
+                    marketPrice = product.marketPrice,
                     isLocal = false
                 )
             }
-            val rawResults = offItems.associateBy { it.code }
-
             searchCacheMutex.withLock {
-                searchCache[cacheKey] = SearchCacheEntry(items, rawResults, System.currentTimeMillis())
+                searchCache[cacheKey] = SearchCacheEntry(items, System.currentTimeMillis())
             }
-
             _offProducts.value = items
-            _offProductsRaw.value = rawResults
-            _selectedOffProduct.value = _selectedProduct.value
-                ?.takeIf { !it.isLocal }
-                ?.let { rawResults[it.id] }
             if (items.isEmpty()) {
                 _searchError.value = "Ничего не найдено"
             }
@@ -202,7 +178,6 @@ class SupplierComparisonViewModel(
                     }
                 }
                 .onFailure { _error.value = it.message ?: "Ошибка загрузки товаров" }
-
             searchCacheMutex.withLock { searchCache.clear() }
         }
     }
@@ -211,12 +186,9 @@ class SupplierComparisonViewModel(
         _selectedProduct.value = product
         _supplierOffers.value = emptyList()
         if (product.isLocal) {
-            _selectedOffProduct.value = null
             _marketPrice.value = product.price ?: 0.0
             loadSuppliers(product.id)
         } else {
-            val off = _offProductsRaw.value[product.id]
-            _selectedOffProduct.value = off
             val marketBase = product.marketPrice ?: 100.0
             _marketPrice.value = marketBase
             loadExternalSuppliers(product.id, marketBase)
@@ -295,7 +267,6 @@ class SupplierComparisonViewModel(
                     return@launch
                 }
             }
-
             createPurchaseUseCase(product.id, supplier.supplierId, quantity)
                 .onSuccess {
                     _successMessage.value = "Приход оформлен"
@@ -328,28 +299,4 @@ class SupplierComparisonViewModel(
 
     fun clearError() { _error.value = null }
     fun clearSuccessMessage() { _successMessage.value = null }
-
-    private fun OpenFoodFactsProductDto.toOffProductItem(): OffProductItem = OffProductItem(
-        code = code,
-        productName = productName,
-        brands = brands,
-        imageUrl = imageUrl,
-        nutriments = null,
-        ingredientsText = null,
-        nutritionGrades = null,
-        nutriscoreData = null,
-        marketPrice = marketPrice
-    )
-
-    private fun ExternalProductDto.toOffProductItem(): OffProductItem = OffProductItem(
-        code = code.orEmpty(),
-        productName = product_name,
-        brands = brands,
-        imageUrl = image_url,
-        nutriments = null,
-        ingredientsText = ingredients_text,
-        nutritionGrades = nutrition_grades,
-        nutriscoreData = null,
-        marketPrice = null
-    )
 }

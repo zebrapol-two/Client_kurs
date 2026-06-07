@@ -12,6 +12,8 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 
 class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
@@ -33,15 +35,7 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
         return safeResponse(response)
     }
 
-    override suspend fun externalSearchProducts(query: String): List<ExternalProductDto> {
-        val response = httpClient.get("/api/external/search") {
-            parameter("query", query)
-            parameter("pageSize", 20)
-        }
-        return safeResponse(response)
-    }
-
-    override suspend fun searchProducts(query: String): List<OpenFoodFactsProductDto> {
+    override suspend fun searchProducts(query: String): List<FakeStoreProductDto> {
         val response = httpClient.get("/api/external/search") {
             parameter("query", query)
             parameter("pageSize", 20)
@@ -104,8 +98,10 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
 
     override suspend fun createExternalProduct(code: String, productName: String, marketPrice: Double): Result<Unit> {
         return try {
+            val request = CreateExternalProductRequest(code, productName, marketPrice)
             val response = httpClient.post("/api/products/external") {
-                setBody(mapOf("code" to code, "productName" to productName, "marketPrice" to marketPrice))
+                contentType(ContentType.Application.Json)
+                setBody(request)
             }
             if (response.status.isSuccess()) {
                 Result.success(Unit)
@@ -129,7 +125,9 @@ class KtorApiServiceImpl(private val httpClient: HttpClient) : KtorApiService {
             }
             if (response.status.isSuccess()) {
                 val dtos = response.body<List<ExternalSupplierDto>>()
-                val offers = dtos.map { SupplierOffer(it.supplierId, it.supplierName, it.price) }
+                val offers = dtos.map { dto ->
+                    SupplierOffer(dto.supplierId, dto.supplierName, dto.price)
+                }
                 Result.success(offers)
             } else {
                 val error = try {
